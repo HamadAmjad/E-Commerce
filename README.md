@@ -3,6 +3,9 @@
 This Store is Created By **Hamad Amjad** in **Flutter & Firebase.**
 The follwing App Can Work on Any Platform or Device as it is fully Responsive.
 hamadamjad024@gmail.com
+
+## The Admin Module is A Seprate Repository
+https://github.com/HamadAmjad/E-Commerce-Admin
 ## This App Has Follwing Features:
 1. SignUp And Login Page With Authentication From Firebase.
 2. Home Page Fully Responsive For Mobiles,Tablets,Laptops.
