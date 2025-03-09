@@ -94,6 +94,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.cyanAccent,
         title: const Text('Favorites'),
       ),
       body: _isLoading

@@ -26,9 +26,33 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void initState() {
-    super.initState();
+    super.initState(); // Only call this once
     _fetchProducts();
     _searchController.addListener(_filterProducts);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showWelcomeDialog();
+    });
+  }
+
+
+  Future<void> _showWelcomeDialog() async {
+    await showDialog(
+      context: context,
+      //barrierDismissible: false, // Prevents dismissing by tapping outside
+      builder: (context) => AlertDialog(
+        title: const Text("Welcome!"),
+        content: const Text("Enjoy shopping with our latest discounts and offers!"),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close the dialog
+            },
+            child: const Text("Got it"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -41,6 +65,8 @@ class _HomePageState extends State<HomePage> {
     final databaseRef = FirebaseDatabase.instance.ref('products');
     try {
       final snapshot = await databaseRef.get();
+      if (!mounted) return; // Ensure the widget is still in the tree
+
       if (snapshot.exists) {
         final List<Product> loadedProducts = [];
         final Set<String> loadedCategories = {'All'}; // Default category
@@ -52,11 +78,12 @@ class _HomePageState extends State<HomePage> {
             price: productData['price']?.toDouble() ?? 0.0,
             imageUrl: productData['imageUrl'] ?? '',
             category: productData['category'] ?? 'Other',
-            description: productData['description'] ,
+            description: productData['description'],
           ));
           loadedCategories.add(productData['category'] ?? 'Other');
         }
 
+        if (!mounted) return; // Check again before calling setState
         setState(() {
           _products = loadedProducts;
           _filteredProducts = loadedProducts;
@@ -64,18 +91,21 @@ class _HomePageState extends State<HomePage> {
           _isLoading = false;
         });
       } else {
+        if (!mounted) return;
         setState(() {
           _isLoading = false;
         });
         print('No products found in the database.');
       }
     } catch (error) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
       print('Error fetching products: $error');
     }
   }
+
   void _filterProducts() {
     final query = _searchController.text.toLowerCase();
     setState(() {
@@ -86,18 +116,21 @@ class _HomePageState extends State<HomePage> {
           .toList();
     });
   }
+
   void _selectCategory(String category) {
     setState(() {
       _selectedCategory = category;
     });
     _filterProducts();
   }
+
   void _addToFavorites(Product product) async {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You need to be logged in to add items to favorites!')),
+        const SnackBar(content: Text(
+            'You need to be logged in to add items to favorites!')),
       );
       return;
     }
@@ -110,7 +143,8 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    final userFavoritesRef = FirebaseDatabase.instance.ref('favorites/${userEmail.replaceAll('.', ',')}/favoritesItems');
+    final userFavoritesRef = FirebaseDatabase.instance.ref(
+        'favorites/${userEmail.replaceAll('.', ',')}/favoritesItems');
 
     try {
       final newFavoriteRef = userFavoritesRef.push();
@@ -130,12 +164,14 @@ class _HomePageState extends State<HomePage> {
       print('Error adding to favorites: $error');
     }
   }
+
   void _addToCart(Product product) async {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You need to be logged in to add items to the cart!')),
+        const SnackBar(content: Text(
+            'You need to be logged in to add items to the cart!')),
       );
       return;
     }
@@ -148,7 +184,8 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    final userCartRef = FirebaseDatabase.instance.ref('carts/${userEmail.replaceAll('.', ',')}/cartItems');
+    final userCartRef = FirebaseDatabase.instance.ref(
+        'carts/${userEmail.replaceAll('.', ',')}/cartItems');
 
     try {
       final newItemRef = userCartRef.push();
@@ -171,11 +208,15 @@ class _HomePageState extends State<HomePage> {
   }
 
 
-
+  @override
+  bool _isSearchExpanded = false;
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery
+        .of(context)
+        .size
+        .width;
     int crossAxisCount;
 
     if (screenWidth < 400) {
@@ -196,8 +237,18 @@ class _HomePageState extends State<HomePage> {
         ),
         backgroundColor: Colors.cyanAccent,
         actions: [
+          if (screenWidth < 450)
+            IconButton(
+              icon: const Icon(Icons.search, color: Colors.black),
+              onPressed: () {
+                setState(() {
+                  _isSearchExpanded = !_isSearchExpanded;
+                });
+              },
+            ),
           IconButton(
-            icon: const Icon(Icons.shopping_cart_checkout_outlined, color: Colors.black),
+            icon: const Icon(
+                Icons.shopping_cart_checkout_outlined, color: Colors.black),
             onPressed: () {
               Navigator.push(
                 context,
@@ -216,28 +267,40 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight * 2),
+          preferredSize: Size.fromHeight(_isSearchExpanded || screenWidth >= 450 ? kToolbarHeight * 2 : kToolbarHeight),
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search products...',
-                    border: OutlineInputBorder(),
-                    hoverColor: Colors.black,
-                    hintStyle: const TextStyle(color: Colors.black),
-                    suffixIcon: const Icon(Icons.search, color: Colors.black),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.black),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.black),
+              if (_isSearchExpanded || screenWidth >= 450)
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search products...',
+                      border: const OutlineInputBorder(),
+                      hintStyle: const TextStyle(color: Colors.black),
+                      suffixIcon: screenWidth >= 450
+                          ? const Icon(Icons.search, color: Colors.black) // Search icon for big screens
+                          : IconButton(
+                        icon: const Icon(Icons.close, color: Colors.black), // Close icon for small screens
+                        onPressed: () {
+                          setState(() {
+                            _isSearchExpanded = false;
+                            _searchController.clear();
+                          });
+                        },
+                      ),
+                      enabledBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.black),
+                      ),
+                      focusedBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.black),
+                      ),
                     ),
                   ),
-                ),
-              ),
+                )
+              else
+                const SizedBox.shrink(), // Removes extra space when search is hidden
               SizedBox(
                 height: 40,
                 child: ListView.builder(
@@ -250,8 +313,8 @@ class _HomePageState extends State<HomePage> {
                       child: Padding(
                         padding: const EdgeInsets.all(5.0),
                         child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 5.0,),
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0,),
+                          margin: const EdgeInsets.symmetric(horizontal: 5.0),
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
                           decoration: BoxDecoration(
                             color: _selectedCategory == category ? Colors.white : Colors.cyanAccent,
                             borderRadius: BorderRadius.circular(2.0),
@@ -271,6 +334,7 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
+
       ),
       drawer: MyDrawer(),
       body: _isLoading
